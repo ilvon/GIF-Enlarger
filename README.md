@@ -12,3 +12,4 @@ Tested under Python 3.11.2 & Pillow 9.4.0.
 ## Remarks
 1. By default, the output file format will be `.png` with resolution = 400 × 400
 2. The output file will placed into a subfolder 'enlarged_apng'
+3. Pillow is required by the script
