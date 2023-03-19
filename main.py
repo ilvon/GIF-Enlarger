@@ -18,7 +18,7 @@ def mov2dir(saved_file, dest_dir):
     shutil.move(saved_file, f'{target_path}/{saved_file}')
 
 
-def major(img_name):
+def disasm(img_name):
     frame_cnt = 0
     with Image.open(img_name) as img:
         mag_size = magnification(img.size)
@@ -61,7 +61,7 @@ src_img_list = glob.glob('*.gif')
 
 for name in src_img_list:
     pure_name = name.replace('.gif', '')
-    major(name)
+    disasm(name)
     asm(frame_list, frame_delay_list, pure_name)
     mov2dir(f'{pure_name}.png', 'enlarged_apng')
     frame_delay_list.clear()
