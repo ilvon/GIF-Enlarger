@@ -48,7 +48,10 @@ def disasm(img_name):
     with Image.open(img_name) as img:
         mag_size = magnification(img.size)
         for frame in ImageSequence.Iterator(img):
-            frame_delay_list.append(frame.info['duration'])
+            if frame.info['duration'] <= 65535:
+                frame_delay_list.append(frame.info['duration'])  
+            else:
+                frame_delay_list.append(65535)
             frame = resizing(mag_size, frame)
             frame_list.append(frame)
             frame_cnt += 1
