@@ -1,10 +1,11 @@
-import re
-import requests
-import os
+from re import findall
+from requests import get as req_get
+from os.path import exists as path_exists, basename as path_basename
+from os import remove as os_remove, makedirs as os_makedirs
 from PIL import Image, ImageSequence
-import glob
-import shutil
-import time
+from glob import glob
+from shutil import move as shutil_move
+from time import time
 import argparse
 
 def args_defining():
@@ -19,10 +20,10 @@ def args_defining():
     args = parser.parse_args()
 
 def img_download(request_content):
-    urls = re.findall(r'https?://[^\s"]+', request_content)
+    urls = findall(r'https?://[^\s"]+', request_content)
     for img_url in urls:
-        response = requests.get(img_url)
-        img_name = os.path.basename(img_url)
+        response = req_get(img_url)
+        img_name = path_basename(img_url)
         if response.status_code == 200:
             with open(img_name, 'wb') as f:
                 f.write(response.content)
@@ -39,9 +40,9 @@ def magnification(image_size):
 
 def mov2dir(saved_file, dest_dir):
     target_path = f'./{dest_dir}'
-    if not os.path.exists(target_path):
-        os.makedirs(target_path)
-    shutil.move(saved_file, f'{target_path}/{saved_file}')
+    if not path_exists(target_path):
+        os_makedirs(target_path)
+    shutil_move(saved_file, f'{target_path}/{saved_file}')
 
 def disasm(img_name):
     frame_cnt = 0
@@ -83,30 +84,32 @@ def gif_enlarger_main():
     args_defining()
     frame_delay_list = []
     frame_list = []
-    process_no = 0
     
     if args.online:
-        contents = input('URL: ')
-        img_download(contents)
+        content_urls = input('URL: ')
+        img_download(content_urls)
         
-    t_start = time.time()
-    src_img_list = glob.glob('*.gif')
-    for name in src_img_list:
+    t_start = time()
+    src_img_list = glob('*.gif')
+    jobs_num = len(src_img_list)
+    
+    for index,name in enumerate(src_img_list):
         pure_name = name.replace('.gif', '')
         disasm(name)
         asm(frame_list, frame_delay_list, pure_name)
         mov2dir(f'{pure_name}.png', 'enlarged_apng')
         frame_delay_list.clear()
         frame_list.clear()
-        process_no += 1
-        if (process_no == len(src_img_list)):
-            print(f"{process_no}/{len(src_img_list)} done.")
+              
+        if index + 1 == jobs_num:
+            print(f'{index+1}/{jobs_num} done.')
         else:
-            print(f"{process_no}/{len(src_img_list)} done.", end="\r")
+            print(f'{index+1}/{jobs_num} done.', end="\r")
+            
         if args.online:
-            os.remove(name)
+            os_remove(name)
         
-    t_end = time.time()
+    t_end = time()
     print(f"Task Done in {round(t_end-t_start,2)}s.")
     
 # ---------------------------------------------------------------------#
