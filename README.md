@@ -1,5 +1,5 @@
-# GIF Enlarger
-A simple python script for enlarging animated GIF and convert it into an APNG (by default).
+# Animated GIF (Pixel Art) Enlarger
+A simple python script for enlarging animated GIF (pixel art) and convert it into an APNG *(by default with [Nearest-Neighbor Interpolation](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)*.
 
 Tested under Python 3.11.2 & Pillow 9.4.0.
 
