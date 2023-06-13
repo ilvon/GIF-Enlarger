@@ -1,22 +1,39 @@
 from re import findall
 from requests import get as req_get
 from os.path import exists as path_exists, basename as path_basename
-from os import remove as os_remove, makedirs as os_makedirs
+from os import remove as os_remove, makedirs as os_makedirs, rename
 from PIL import Image, ImageSequence
 from glob import glob
 from shutil import move as shutil_move
 from time import time
 import argparse
 
+cfg_init = {
+    'dimension': 400,
+    'mag': 12,
+    'in': 'gif',
+    'out': 'png',
+    'out_dir': 'enlarged_apng',
+    'resampling': (Image.Resampling.NEAREST, Image.Resampling.BOX, 
+                   Image.Resampling.BILINEAR, Image.Resampling.HAMMING, 
+                   Image.Resampling.BICUBIC, Image.Resampling.LANCZOS)
+}
+
 def args_defining():
     global args
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--dimension', type=int, default=400, metavar='',
+    parser.add_argument('-d', '--dimension', type=int, default=cfg_init['dimension'], metavar='',
                         help='Dimension of the output apng (Default=400px, Min.=Source image size)')
-    parser.add_argument('-l', '--limit', type=int, default=12, metavar='',
+    parser.add_argument('-l', '--limit', type=int, default=cfg_init['mag'], metavar='',
                         help='Limit of the maximum magnification (Default=12, No limit=0)')
     parser.add_argument('-n', '--online', default=False, action='store_true', 
                         help='Using online image with URL as source')
+    parser.add_argument('-i', '--input', type=str, default=cfg_init['in'], metavar='',
+                        help='Input images format (Default = gif)')
+    parser.add_argument('-o', '--output', type=str, default=cfg_init['out'], metavar='',
+                        help='Output images format (Default = png)')
+    parser.add_argument('-r', '--resample', type=int, default=0, metavar='',
+                        help='Set the type of image interpolation (Default = NEAREST), Details: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters')
     args = parser.parse_args()
 
 def img_download(request_content):
@@ -42,25 +59,29 @@ def mov2dir(saved_file, dest_dir):
     target_path = f'./{dest_dir}'
     if not path_exists(target_path):
         os_makedirs(target_path)
-    shutil_move(saved_file, f'{target_path}/{saved_file}')
+    resulting = f'{target_path}/{saved_file}'
+    shutil_move(saved_file, resulting)
+    rename(resulting, resulting.replace('_new',''))
 
 def disasm(img_name):
     frame_cnt = 0
     with Image.open(img_name) as img:
         mag_size = magnification(img.size)
         for frame in ImageSequence.Iterator(img):
-            if frame.info['duration'] <= 65535:
-                frame_delay_list.append(frame.info['duration'])  
+            if 'duration' in frame.info:    #check for png's frame duration existence
+                if frame.info['duration'] <= 65535:
+                    frame_delay_list.append(frame.info['duration'])
+                else:
+                    frame_delay_list.append(65535)
             else:
-                frame_delay_list.append(65535)
+                frame_delay_list.append(0)
             frame = resizing(mag_size, frame)
             frame_list.append(frame)
             frame_cnt += 1
 
 def resizing(mag, img_obj):
     img_obj = img_obj.resize(
-        (img_obj.width * mag, img_obj.height * mag), resample=Image.NEAREST)
-    # bg_img = Image.new("RGBA", (450, 450), (0, 0, 0, 0))
+        (img_obj.width * mag, img_obj.height * mag), resample=cfg_init['resampling'][args.resample])
     if max(img_obj.width,img_obj.height) > args.dimension:
         args.dimension = max(img_obj.width,img_obj.height)
     bg_img = Image.new("RGBA", (args.dimension, args.dimension), (255, 255, 255, 0))
@@ -70,14 +91,19 @@ def resizing(mag, img_obj):
     return bg_img
 
 def asm(frames, delays, name_out):
+    if args.input == args.output:
+        saving_filename = f'{name_out}_new.{args.output}'
+    else:
+        saving_filename = f'{name_out}.{args.output}'
     frames[0].save(
-        f'{name_out}.png',
-        format='PNG',
+        saving_filename,
+        format=args.output,
         save_all=True,
         append_images=frames[1:],
         duration=delays,
         disposal=1,
         loop=0)
+    return saving_filename
     
 def gif_enlarger_main():
     global frame_delay_list, frame_list
@@ -88,16 +114,15 @@ def gif_enlarger_main():
     if args.online:
         content_urls = input('URL: ')
         img_download(content_urls)
-        
     t_start = time()
-    src_img_list = glob('*.gif')
+    src_img_list = glob(f'*.{args.input}')
     jobs_num = len(src_img_list)
     
     for index,name in enumerate(src_img_list):
-        pure_name = name.replace('.gif', '')
+        pure_name = name.replace(f'.{args.input}', '')
         disasm(name)
-        asm(frame_list, frame_delay_list, pure_name)
-        mov2dir(f'{pure_name}.png', 'enlarged_apng')
+        output_img_name = asm(frame_list, frame_delay_list, pure_name)
+        mov2dir(output_img_name, cfg_init['out_dir'])
         frame_delay_list.clear()
         frame_list.clear()
               
