@@ -9,8 +9,6 @@
 #include <Magick++.h>
 #include "argparse.hpp"
 
-// g++.exe main.cpp -o main.exe -IC:\msys64\mingw64\include\ImageMagick-7 -LC:\msys64\mingw64\bin 
-// -lcurl -l"libMagick++-7.Q16HDRI-5" -l"libMagickCore-7.Q16HDRI" -l"libMagickWand-7.Q16HDRI" -DMAGICKCORE_QUANTUM_DEPTH=8 -DMAGICKCORE_HDRI_ENABLE=0
 // https://imagemagick.org/Magick++/Documentation.html
 
 using namespace std;
@@ -27,8 +25,8 @@ MagickCore::FilterType resampler[6] = {
     MagickCore::FilterType::CubicFilter, MagickCore::FilterType::LanczosFilter};
 
 void args_defining(int ac, char** av){
-    parser.add_argument("-d", "--dimension", false, "400", false, 
-    "Dimension of the output apng (Default=400px)");
+    parser.add_argument("-d", "--dimension", false, "512", false, 
+    "Dimension of the output apng (Default=512px)");
     parser.add_argument("-l", "--limit", false, "12", false, 
     "Limit of the maximum magnification (Default=12, No limit=0)");
     parser.add_argument("-n", "--online", false, "false", true, 
@@ -65,7 +63,7 @@ void get_exe_dir_path(fs::path& __current_path){
 
 void get_online_srcimg(vector<fs::path>& dl_list){
     string rawdat;
-    cout << "URL: ";
+    cout << "URLs: ";
     getline(cin, rawdat);
 
     regex urlregex(R"(https?:\/\/[^\s"><]*)");
@@ -94,7 +92,6 @@ void get_online_srcimg(vector<fs::path>& dl_list){
             curl_easy_setopt(image, CURLOPT_WRITEFUNCTION, NULL);
             curl_easy_setopt(image, CURLOPT_WRITEDATA, fp);
             curl_easy_setopt(image, CURLOPT_URL, surl.c_str());
-            // curl_easy_setopt(image, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT x.y; Win64; x64; rv:10.0) Gecko/20100101 Firefox/10.0");
             curl_easy_setopt(image, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36");
             imgresult = curl_easy_perform(image);
             if (imgresult){
@@ -107,14 +104,16 @@ void get_online_srcimg(vector<fs::path>& dl_list){
     }
 }
 
-void get_img_list(string format, fs::path p_src){   // src_img -> same dir
+// source images from the same directory of the exe
+// src_img_list: relative path name
+void get_img_list(string format, fs::path p_src){
     fs::path name;
     try{
         for(const auto& result : fs::directory_iterator(p_src)){
             if(fs::is_regular_file(result.path())){
                 name = result.path().filename();
                 if(format == name.extension().string()){
-                    src_img_list.push_back(name); // name -> relative path
+                    src_img_list.push_back(name);
                 }
             }
         }
@@ -124,12 +123,15 @@ void get_img_list(string format, fs::path p_src){   // src_img -> same dir
     }
 }
 
-void get_img_list(int argc, char** argv){   //src_img -> maybe diff dir
+// source images from different directroy (add by drag n drop)
+// src_img_list: absolute path
+void get_img_list(int argc, char** argv){
+    fs::path name;
     try{
         for(int j = 1; j < argc; j++){
             string pathstr = argv[j];
-            fs::path fsp = pathstr;
-            src_img_list.push_back(fsp);  // fsp -> absolute path
+            name = pathstr;
+            src_img_list.push_back(name);
         }
     }catch(const exception& err){
         cerr << "Error: " << err.what() << endl;

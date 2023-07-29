@@ -1,0 +1,3 @@
+*.exe
+.vscode
+cpp_version/run.ps1
