@@ -1,4 +1,9 @@
 # Animated GIF (Pixel Art) Enlarger
+![VERSION](https://img.shields.io/badge/v1.0.2-0047AB)
+![PYTHON](https://img.shields.io/badge/Python-3.11.2-green)
+![PILLOW](https://img.shields.io/badge/Pillow-9.4.0-green)
+![CPP_MAGICK](https://img.shields.io/badge/Magick++-7.1.1.13--1-violet)
+
 A simple python script for enlarging animated GIF (pixel art) and convert it into an APNG *(by default with [Nearest-Neighbor Interpolation](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)*).
 
 Tested under Python 3.11.2 & Pillow 9.4.0.
