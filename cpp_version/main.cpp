@@ -200,14 +200,7 @@ void disasm_asm_wrt(fs::path ori_img){
             ping_ind++;
         }
         if (parser.args["output"] == "png"){
-            // char g2acmd[400];
-            string intm_name = target_images_str.substr(0, target_images_str.rfind(".") + 1) + "gif";
-            writeImages(export_fm.begin(), export_fm.end(), intm_name, true);
-            string cmdstr = "\"\"" + __current_exe_path.string() + "\\gif2apng.exe\" \"" + intm_name + "\" \"" + target_images_str + "\"\"";
-            system(cmdstr.c_str());
-            // sprintf(g2acmd, "\"\"%s\\gif2apng.exe\" \"%s\" \"%s\"\"",__current_exe_path.string().c_str(), intm_name.c_str(), target_images_str.c_str());
-            // system(g2acmd);
-            remove(intm_name.c_str());
+            writeImages(export_fm.begin(), export_fm.end(), "APNG:"+target_images_str, true);
         }else{
             writeImages(export_fm.begin(), export_fm.end(), target_images_str, true);
         }
