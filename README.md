@@ -1,12 +1,12 @@
 # Animated GIF (Pixel Art) Enlarger
 ![VERSION](https://img.shields.io/badge/v1.0.2-0047AB)
 ![PYTHON](https://img.shields.io/badge/Python-3.11.2-green)
-![PILLOW](https://img.shields.io/badge/Pillow-9.4.0-green)
-![CPP_MAGICK](https://img.shields.io/badge/Magick++-7.1.1.13--1-violet)
+![PILLOW](https://img.shields.io/badge/Pillow-10.0.0-green)
+![CPP_MAGICK](https://img.shields.io/badge/Magick++-7.1.1.15--1-violet)
 
 A simple python script for enlarging animated GIF (pixel art) and convert it into an APNG *(by default with [Nearest-Neighbor Interpolation](https://en.wikipedia.org/wiki/Nearest-neighbor_interpolation)*).
 
-Tested under Python 3.11.2 & Pillow 9.4.0.
+Tested under Python 3.11.2 & Pillow 10.0.0
 
 ## Usage
 - Download the python script **main.py**  
@@ -15,7 +15,7 @@ Tested under Python 3.11.2 & Pillow 9.4.0.
 ## Option
 |         Args         |                                  Description                                  |
 |:--------------------:|:-----------------------------------------------------------------------------:|
-| `-d` , `--dimension` | Dimension of the output (square) apng (Default=400px, Min.=Source image size) |
+| `-d` , `--dimension` | Dimension of the output (square) apng (Default=512px, Min.=Source image size) |
 |   `-l` , `--limit`   |         Limit for the maximum magnification (Default=12, No limit=0)          |
 |   `-n`, `--online`   |                     Using online image with URL as source                     |
 |   `-i`, `--input`    |                       Image input format (Default: `gif`)                       |
@@ -38,6 +38,5 @@ Tested under Python 3.11.2 & Pillow 9.4.0.
 
 
 ## Remarks
-1. By default, the output file format will be `.png` with resolution = 400 × 400
-2. The output file will placed into a subfolder 'enlarged_apng'
-3. Pillow is required
+1. By default, the output file format will be `.png` with resolution = 512 × 512
+2. The output file will placed into a subfolder 'enlarged'
