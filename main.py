@@ -9,11 +9,11 @@ from time import time
 import argparse
 
 cfg_init = {
-    'dimension': 400,
+    'dimension': 512,
     'mag': 12,
     'in': 'gif',
     'out': 'png',
-    'out_dir': 'enlarged_apng',
+    'out_dir': 'enlarged',
     'resampling': (Image.Resampling.NEAREST, Image.Resampling.BOX, 
                    Image.Resampling.BILINEAR, Image.Resampling.HAMMING, 
                    Image.Resampling.BICUBIC, Image.Resampling.LANCZOS)
@@ -23,7 +23,7 @@ def args_defining():
     global args
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dimension', type=int, default=cfg_init['dimension'], metavar='',
-                        help='Dimension of the output apng (Default=400px, Min.=Source image size)')
+                        help='Dimension of the output apng (Default=512px, Min.=Source image size)')
     parser.add_argument('-l', '--limit', type=int, default=cfg_init['mag'], metavar='',
                         help='Limit of the maximum magnification (Default=12, No limit=0)')
     parser.add_argument('-n', '--online', default=False, action='store_true', 
