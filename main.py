@@ -15,6 +15,7 @@ cfg_init = {
     'in': 'gif',
     'out': 'png',
     'out_dir': 'enlarged',
+    'download_dir': 'downloads',
     'resampling': (Image.Resampling.NEAREST, Image.Resampling.BOX, 
                    Image.Resampling.BILINEAR, Image.Resampling.HAMMING, 
                    Image.Resampling.BICUBIC, Image.Resampling.LANCZOS)
@@ -23,11 +24,12 @@ cfg_init = {
 def args_defining():
     global args
     parser = argparse.ArgumentParser()
+    ME_flags = parser.add_mutually_exclusive_group()
     parser.add_argument('-d', '--dimension', type=int, default=cfg_init['dimension'], metavar='',
                         help='Dimension of the output apng (Default=512px, Min.=Source image size)')
     parser.add_argument('-l', '--limit', type=int, default=cfg_init['mag'], metavar='',
                         help='Limit of the maximum magnification (Default=12, No limit=0)')
-    parser.add_argument('-n', '--online', default=False, action='store_true', 
+    ME_flags.add_argument('-n', '--online', default=False, action='store_true',
                         help='Using online image with URL as source')
     parser.add_argument('-i', '--input', type=str, default=cfg_init['in'], metavar='',
                         help='Input images format (Default = gif)')
@@ -35,16 +37,21 @@ def args_defining():
                         help='Output images format (Default = png)')
     parser.add_argument('-r', '--resample', type=int, default=0, metavar='',
                         help='Set the type of image interpolation (Default = NEAREST), Details: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters')
+    ME_flags.add_argument('-g', '--download', default=False, action='store_true',
+                        help='Download the online images only (without anying enlargement)')
     args = parser.parse_args()
 
-def img_download(request_content):
+def img_download(request_content) -> list:
     urls = findall(r'https?://[^\s"]+', request_content)
+    retrieved_images = []
     for img_url in urls:
         response = req_get(img_url)
         img_name = path_basename(img_url)
         if response.status_code == 200:
             with open(img_name, 'wb') as f:
                 f.write(response.content)
+            retrieved_images.append(img_name)
+    return retrieved_images
 
 def magnification(image_size):
     if args.dimension < max(image_size):
@@ -61,8 +68,13 @@ def mov2dir(saved_file, dest_dir):
     if not path_exists(target_path):
         os_makedirs(target_path)
     resulting = f'{target_path}/{saved_file}'
-    shutil_move(saved_file, resulting)
-    rename(resulting, resulting.replace('_new',''))
+    shutil_move(saved_file, resulting.replace('__new_tmp_imgs__', ''))
+
+def download_mode_move(dl_imgs):
+    if not path_exists(f"./{cfg_init['download_dir']}"):
+        os_makedirs(f"./{cfg_init['download_dir']}")
+    for dls in dl_imgs:
+        shutil_move(dls, f"{cfg_init['download_dir']}/{dls}")
 
 def disasm(img_name):
     frame_cnt = 0
@@ -93,7 +105,7 @@ def resizing(mag, img_obj):
 
 def asm(frames, delays, name_out):
     if args.input == args.output:
-        saving_filename = f'{name_out}_new.{args.output}'
+        saving_filename = f'__new_tmp_imgs__{name_out}.{args.output}'
     else:
         saving_filename = f'{name_out}.{args.output}'
     disposal_type = 2 if args.output == 'gif' else 1
@@ -113,12 +125,16 @@ def gif_enlarger_main():
     frame_delay_list = []
     frame_list = []
     
-    if args.online:
+    if args.online or args.download:
         print('URLs (Press Ctrl + Z on a new line to finish for Windows): ')
         content_urls = sys.stdin.read()
-        img_download(content_urls)
+        downloaded_images = img_download(content_urls)
+        if args.download:
+            download_mode_move(downloaded_images)
+            return
+        
     t_start = time()
-    src_img_list = glob(f'*.{args.input}')
+    src_img_list = glob(f'*.{args.input}') if not args.online else downloaded_images
     jobs_num = len(src_img_list)
     
     for index,name in enumerate(src_img_list):
