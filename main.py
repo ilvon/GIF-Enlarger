@@ -7,6 +7,7 @@ from glob import glob
 from shutil import move as shutil_move
 from time import time
 import argparse
+import sys
 
 cfg_init = {
     'dimension': 512,
@@ -95,13 +96,14 @@ def asm(frames, delays, name_out):
         saving_filename = f'{name_out}_new.{args.output}'
     else:
         saving_filename = f'{name_out}.{args.output}'
+    disposal_type = 2 if args.output == 'gif' else 1
     frames[0].save(
         saving_filename,
         format=args.output,
         save_all=True,
         append_images=frames[1:],
         duration=delays,
-        disposal=1,
+        disposal=disposal_type,
         loop=0)
     return saving_filename
     
@@ -112,7 +114,8 @@ def gif_enlarger_main():
     frame_list = []
     
     if args.online:
-        content_urls = input('URL: ')
+        print('URLs (Press Ctrl + Z on a new line to finish for Windows): ')
+        content_urls = sys.stdin.read()
         img_download(content_urls)
     t_start = time()
     src_img_list = glob(f'*.{args.input}')
