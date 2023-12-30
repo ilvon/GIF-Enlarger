@@ -1,5 +1,9 @@
 *.exe
 .vscode
-run.ps1
+*.ps1
 enlarged
 test
+.venv
+test_urls.html
+dist
+*.spec
