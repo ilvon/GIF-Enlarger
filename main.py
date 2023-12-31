@@ -1,7 +1,7 @@
 from re import findall
 from requests import get as req_get
 from os.path import exists as path_exists, basename as path_basename
-from os import remove as os_remove, makedirs as os_makedirs, rename
+from os import remove as os_remove, makedirs as os_makedirs
 from PIL import Image, ImageSequence
 from glob import glob
 from shutil import move as shutil_move
@@ -74,23 +74,29 @@ def download_mode_move(dl_imgs):
     if not path_exists(f"./{cfg_init['download_dir']}"):
         os_makedirs(f"./{cfg_init['download_dir']}")
     for dls in dl_imgs:
-        shutil_move(dls, f"{cfg_init['download_dir']}/{dls}")
+        try:
+            shutil_move(dls, f"{cfg_init['download_dir']}/{dls}")
+        except FileNotFoundError:
+            print(f'\n{dls} does not exist, unable to move to directory \"downloads\" (Possible reason: Repeated downloadings from inserted URLs.)')
 
 def disasm(img_name):
     frame_cnt = 0
-    with Image.open(img_name) as img:
-        mag_size = magnification(img.size)
-        for frame in ImageSequence.Iterator(img):
-            if 'duration' in frame.info:    #check for png's frame duration existence
-                if frame.info['duration'] <= 65535:
-                    frame_delay_list.append(frame.info['duration'])
+    try:
+        with Image.open(img_name) as img:
+            mag_size = magnification(img.size)
+            for frame in ImageSequence.Iterator(img):
+                if 'duration' in frame.info:    #check for png's frame duration existence
+                    if frame.info['duration'] <= 65535:
+                        frame_delay_list.append(frame.info['duration'])
+                    else:
+                        frame_delay_list.append(65535)
                 else:
-                    frame_delay_list.append(65535)
-            else:
-                frame_delay_list.append(0)
-            frame = resizing(mag_size, frame)
-            frame_list.append(frame)
-            frame_cnt += 1
+                    frame_delay_list.append(0)
+                frame = resizing(mag_size, frame)
+                frame_list.append(frame)
+                frame_cnt += 1
+    except FileNotFoundError:
+        print(f'Unable to open \"{img_name}\". (Possible reason: File being deleted / Repeated downloads.)')
 
 def resizing(mag, img_obj):
     img_obj = img_obj.resize(
@@ -140,8 +146,9 @@ def gif_enlarger_main():
     for index,name in enumerate(src_img_list):
         pure_name = name.replace(f'.{args.input}', '')
         disasm(name)
-        output_img_name = asm(frame_list, frame_delay_list, pure_name)
-        mov2dir(output_img_name, cfg_init['out_dir'])
+        if len(frame_list) and len(frame_delay_list):
+            output_img_name = asm(frame_list, frame_delay_list, pure_name)
+            mov2dir(output_img_name, cfg_init['out_dir'])
         frame_delay_list.clear()
         frame_list.clear()
               
@@ -151,11 +158,19 @@ def gif_enlarger_main():
             print(f'{index+1}/{jobs_num} done.', end="\r")
             
         if args.online:
-            os_remove(name)
+            try:
+                os_remove(name)
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                print(f"An error occurred: {e}")
         
     t_end = time()
     print(f"Task Done in {round(t_end-t_start,2)}s.")
     
 # ---------------------------------------------------------------------#
 
-gif_enlarger_main()
+try:
+    gif_enlarger_main()
+except KeyboardInterrupt:
+    print('\nProcess terminated.')
