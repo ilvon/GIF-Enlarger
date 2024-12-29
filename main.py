@@ -31,9 +31,9 @@ def args_defining():
                         help='Limit of the maximum magnification (Default=12, No limit=0)')
     ME_flags.add_argument('-n', '--online', default=False, action='store_true',
                         help='Using online image with URL as source')
-    parser.add_argument('-i', '--input', type=str, default=cfg_init['in'], metavar='',
+    parser.add_argument('-i', '--input', type=str, default=cfg_init['in'], metavar='', choices=['png', 'gif', 'webp'],
                         help='Input images format (Default = gif)')
-    parser.add_argument('-o', '--output', type=str, default=cfg_init['out'], metavar='',
+    parser.add_argument('-o', '--output', type=str, default=cfg_init['out'], metavar='', choices=['png', 'gif', 'webp'],
                         help='Output images format (Default = png)')
     parser.add_argument('-r', '--resample', type=int, default=0, metavar='',
                         help='Set the type of image interpolation (Default = NEAREST), Details: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters')
@@ -62,6 +62,14 @@ def magnification(image_size):
         if magnify > args.limit:
             magnify = args.limit
     return magnify
+
+def gif_palette_handler(frame):
+    alpha_channel = frame.getchannel('A')
+    frame_mask = Image.eval(alpha_channel, lambda a: 255 if a <= 128 else 0)
+    frame = frame.convert('P').quantize(colors=256, dither=Image.NONE)
+    frame.info['transparency'] = 0
+    frame.paste(0, frame_mask)
+    return frame
 
 def mov2dir(saved_file, dest_dir):
     target_path = f'./{dest_dir}'
@@ -93,6 +101,8 @@ def disasm(img_name):
                 else:
                     frame_delay_list.append(0)
                 frame = resizing(mag_size, frame)
+                if args.output == 'gif':
+                    frame = gif_palette_handler(frame)
                 frame_list.append(frame)
                 frame_cnt += 1
     except FileNotFoundError:
