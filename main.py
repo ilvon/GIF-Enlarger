@@ -1,13 +1,14 @@
+from PIL import Image, ImageSequence
+from concurrent.futures import ThreadPoolExecutor
+from glob import glob
 from re import findall
 from requests import get as req_get
-import os
-from PIL import Image, ImageSequence
-from glob import glob
 from shutil import move as shutil_move
 from time import time
-import argparse
-import sys
 from tqdm import tqdm
+import argparse
+import os
+import sys
 
 cfg_init = {
     'dimension': 512,
@@ -37,8 +38,10 @@ def args_defining():
                         help='Output images format (Default = png)')
     parser.add_argument('-r', '--resample', type=int, default=0, metavar='',
                         help='Set the type of image interpolation (Default = NEAREST), Details: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters')
+    parser.add_argument('-t', '--threads', type=int, default=4, metavar='',
+                        help='Number of threads for parallel processing (Default=4)')
     ME_flags.add_argument('-g', '--download', default=False, action='store_true',
-                        help='Download the online images only (without anying enlargement)')
+                        help='Download the online images only (without any enlargement)')
     args = parser.parse_args()
 
 def img_download(request_content) -> list:
@@ -58,7 +61,7 @@ def magnification(image_size):
     if args.dimension < max(image_size):
         magnify = 1
     else:
-        magnify = int(args.dimension/max(image_size))
+        magnify = int(args.dimension / max(image_size))
     if args.limit:
         if magnify > args.limit:
             magnify = args.limit
@@ -86,34 +89,44 @@ def download_mode_move(dl_imgs):
         try:
             shutil_move(dls, f"{cfg_init['download_dir']}/{dls}")
         except FileNotFoundError:
-            print(f'\n{dls} does not exist, unable to move to directory \"downloads\" (Possible reason: Repeated downloadings from inserted URLs.)')
+            print(f'\n{dls} does not exist, unable to move to directory "downloads" (Possible reason: Repeated downloading from inserted URLs.)')
 
-def disasm(img_name):
+def disasm(img_name, frame_list, frame_delay_list):
     frame_cnt = 0
     try:
         with Image.open(img_name) as img:
             mag_size = magnification(img.size)
             for frame in ImageSequence.Iterator(img):
-                if 'duration' in frame.info:    #check for png's frame duration existence
-                    if frame.info['duration'] <= 65535:
-                        frame_delay_list.append(frame.info['duration'])
-                    else:
-                        frame_delay_list.append(65535)
+                if 'duration' in frame.info:
+                    frame_delay = min(frame.info.get('duration', 0), 65535)
                 else:
-                    frame_delay_list.append(0)
-                frame = resizing(mag_size, frame)
+                    frame_delay = 0
+
+                try:
+                    frame = resizing(mag_size, frame)
+                except Exception as e:
+                    print(f"Error resizing frame {frame_cnt} of {img_name}: {e}")
+                    continue
+
                 if args.output == 'gif':
                     frame = gif_palette_handler(frame)
+
                 frame_list.append(frame)
+                frame_delay_list.append(frame_delay)
                 frame_cnt += 1
+
+            if frame_cnt == 0:
+                raise ValueError(f"No frames processed for {img_name}.")
     except FileNotFoundError:
-        print(f'Unable to open \"{img_name}\". (Possible reason: File being deleted / Repeated downloads.)')
+        print(f'Unable to open "{img_name}". (Possible reason: File being deleted / Repeated downloads.)')
+    except Exception as e:
+        print(f"Error processing {img_name}: {e}")
 
 def resizing(mag, img_obj):
     img_obj = img_obj.resize(
         (img_obj.width * mag, img_obj.height * mag), resample=cfg_init['resampling'][args.resample])
-    if max(img_obj.width,img_obj.height) > args.dimension:
-        args.dimension = max(img_obj.width,img_obj.height)
+    if max(img_obj.width, img_obj.height) > args.dimension:
+        args.dimension = max(img_obj.width, img_obj.height)
     bg_img = Image.new("RGBA", (args.dimension, args.dimension), (255, 255, 255, 0))
     offset = ((bg_img.width - img_obj.width) // 2,
               (bg_img.height - img_obj.height) // 2)
@@ -135,12 +148,32 @@ def asm(frames, delays, name_out):
         disposal=disposal_type,
         loop=0)
     return saving_filename
-    
-def gif_enlarger_main():
-    global frame_delay_list, frame_list
-    args_defining()
-    frame_delay_list = []
+
+def image_processor(name):
     frame_list = []
+    frame_delay_list = []
+    try:
+        pure_name = name.replace(f'.{args.input}', '')
+        disasm(name, frame_list, frame_delay_list)
+
+        if len(frame_list) and len(frame_delay_list):
+            output_img_name = asm(frame_list, frame_delay_list, pure_name)
+            mov2dir(output_img_name, f"{cfg_init['out_dir']}_{args.output}")
+        else:
+            print(f"No frames to process for {name}, skipping.")
+
+        if args.online:
+            try:
+                os.remove(name)
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                print(f"An error occurred while deleting {name}: {e}")
+    except Exception as e:
+        print(f"Error processing {name}: {e}")
+
+def gif_enlarger_main():
+    args_defining()
     
     if args.online or args.download:
         print('URLs (Press Ctrl + Z on a new line to finish for Windows): ')
@@ -149,30 +182,16 @@ def gif_enlarger_main():
         if args.download:
             download_mode_move(downloaded_images)
             return
-        
+
     t_start = time()
     src_img_list = glob(f'*.{args.input}') if not args.online else downloaded_images
-    
-    for name in tqdm(src_img_list, desc="Processing Images", unit="img"):
-        pure_name = name.replace(f'.{args.input}', '')
-        disasm(name)
-        if len(frame_list) and len(frame_delay_list):
-            output_img_name = asm(frame_list, frame_delay_list, pure_name)
-            mov2dir(output_img_name, f"{cfg_init['out_dir']}_{args.output}")
-        frame_delay_list.clear()
-        frame_list.clear()
-              
-        if args.online:
-            try:
-                os.remove(name)
-            except FileNotFoundError:
-                pass
-            except Exception as e:
-                print(f"An error occurred: {e}")
-        
+
+    with ThreadPoolExecutor(max_workers=args.threads) as executor:
+        list(tqdm(executor.map(image_processor, src_img_list), desc="Processing Images", total=len(src_img_list), unit="img"))
+
     t_end = time()
-    print(f"Task Done in {round(t_end-t_start,2)}s.")
-    
+    print(f"Task Done in {round(t_end-t_start, 2)}s.")
+
 if __name__ == '__main__':
     try:
         gif_enlarger_main()
