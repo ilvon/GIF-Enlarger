@@ -1,9 +1,10 @@
 *.exe
-.vscode
 *.ps1
+*.spec
+.venv
+.vscode
+__pycache__
+dist
 enlarged
 test
-.venv
 test_urls.html
-dist
-*.spec
