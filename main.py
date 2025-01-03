@@ -1,13 +1,13 @@
 from re import findall
 from requests import get as req_get
-from os.path import exists as path_exists, basename as path_basename
-from os import remove as os_remove, makedirs as os_makedirs
+import os
 from PIL import Image, ImageSequence
 from glob import glob
 from shutil import move as shutil_move
 from time import time
 import argparse
 import sys
+from tqdm import tqdm
 
 cfg_init = {
     'dimension': 512,
@@ -43,10 +43,11 @@ def args_defining():
 
 def img_download(request_content) -> list:
     urls = findall(r'https?://[^\s"]+', request_content)
+    print(f'\n{len(urls)} images will be downloaded.\n')
     retrieved_images = []
     for img_url in urls:
         response = req_get(img_url)
-        img_name = path_basename(img_url)
+        img_name = os.path.basename(img_url)
         if response.status_code == 200:
             with open(img_name, 'wb') as f:
                 f.write(response.content)
@@ -73,14 +74,14 @@ def gif_palette_handler(frame):
 
 def mov2dir(saved_file, dest_dir):
     target_path = f'./{dest_dir}'
-    if not path_exists(target_path):
-        os_makedirs(target_path)
+    if not os.path.exists(target_path):
+        os.makedirs(target_path)
     resulting = f'{target_path}/{saved_file}'
     shutil_move(saved_file, resulting.replace('__new_tmp_imgs__', ''))
 
 def download_mode_move(dl_imgs):
-    if not path_exists(f"./{cfg_init['download_dir']}"):
-        os_makedirs(f"./{cfg_init['download_dir']}")
+    if not os.path.exists(f"./{cfg_init['download_dir']}"):
+        os.makedirs(f"./{cfg_init['download_dir']}")
     for dls in dl_imgs:
         try:
             shutil_move(dls, f"{cfg_init['download_dir']}/{dls}")
@@ -151,25 +152,19 @@ def gif_enlarger_main():
         
     t_start = time()
     src_img_list = glob(f'*.{args.input}') if not args.online else downloaded_images
-    jobs_num = len(src_img_list)
     
-    for index,name in enumerate(src_img_list):
+    for name in tqdm(src_img_list, desc="Processing Images", unit="img"):
         pure_name = name.replace(f'.{args.input}', '')
         disasm(name)
         if len(frame_list) and len(frame_delay_list):
             output_img_name = asm(frame_list, frame_delay_list, pure_name)
-            mov2dir(output_img_name, cfg_init['out_dir'])
+            mov2dir(output_img_name, f"{cfg_init['out_dir']}_{args.output}")
         frame_delay_list.clear()
         frame_list.clear()
               
-        if index + 1 == jobs_num:
-            print(f'{index+1}/{jobs_num} done.')
-        else:
-            print(f'{index+1}/{jobs_num} done.', end="\r")
-            
         if args.online:
             try:
-                os_remove(name)
+                os.remove(name)
             except FileNotFoundError:
                 pass
             except Exception as e:
@@ -178,9 +173,8 @@ def gif_enlarger_main():
     t_end = time()
     print(f"Task Done in {round(t_end-t_start,2)}s.")
     
-# ---------------------------------------------------------------------#
-
-try:
-    gif_enlarger_main()
-except KeyboardInterrupt:
-    print('\nProcess terminated.')
+if __name__ == '__main__':
+    try:
+        gif_enlarger_main()
+    except KeyboardInterrupt:
+        print('\nProcess terminated.')
