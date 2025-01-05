@@ -38,8 +38,6 @@ def args_defining():
                         help='Output images format (Default = png)')
     parser.add_argument('-r', '--resample', type=int, default=0, metavar='',
                         help='Set the type of image interpolation (Default = NEAREST), Details: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters')
-    parser.add_argument('-t', '--threads', type=int, default=4, metavar='',
-                        help='Number of threads for parallel processing (Default=4)')
     ME_flags.add_argument('-g', '--download', default=False, action='store_true',
                         help='Download the online images only (without any enlargement)')
     args = parser.parse_args()
@@ -102,21 +100,13 @@ def disasm(img_name, frame_list, frame_delay_list):
                 else:
                     frame_delay = 0
 
-                try:
-                    frame = resizing(mag_size, frame)
-                except Exception as e:
-                    print(f"Error resizing frame {frame_cnt} of {img_name}: {e}")
-                    continue
-
+                frame = resizing(mag_size, frame)
                 if args.output == 'gif':
                     frame = gif_palette_handler(frame)
 
                 frame_list.append(frame)
                 frame_delay_list.append(frame_delay)
                 frame_cnt += 1
-
-            if frame_cnt == 0:
-                raise ValueError(f"No frames processed for {img_name}.")
     except FileNotFoundError:
         print(f'Unable to open "{img_name}". (Possible reason: File being deleted / Repeated downloads.)')
     except Exception as e:
@@ -186,7 +176,7 @@ def gif_enlarger_main():
     t_start = time()
     src_img_list = glob(f'*.{args.input}') if not args.online else downloaded_images
 
-    with ThreadPoolExecutor(max_workers=args.threads) as executor:
+    with ThreadPoolExecutor(max_workers=os.cpu_count()*2) as executor:
         list(tqdm(executor.map(image_processor, src_img_list), desc="Processing Images", total=len(src_img_list), unit="img"))
 
     t_end = time()
